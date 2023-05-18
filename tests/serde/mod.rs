@@ -1,4 +1,4 @@
-use serde_test::{assert_de_tokens_error, assert_tokens, Compact, Configure, Readable, Token};
+use serde_test::{assert_de_tokens_error, assert_tokens, Compact, Configure, Readable, Token, assert_de_tokens};
 use time::macros::{date, datetime, offset, time};
 use time::{Date, Duration, Month, OffsetDateTime, PrimitiveDateTime, Time, UtcOffset, Weekday};
 
@@ -41,6 +41,19 @@ fn time() {
     assert_tokens(
         &time!(23:58:59.123_456_789).readable(),
         &[Token::BorrowedStr("23:58:59.123456789")],
+    );
+    assert_de_tokens(
+        &Time::MIDNIGHT.readable(),
+        &[Token::BorrowedStr("00:00:00.0")],
+    );
+    assert_de_tokens(
+        &time!(23:58:59.123_456_789).readable(),
+        &[Token::BorrowedStr("23:58:59.123456789")],
+    );
+    
+    assert_de_tokens(
+        &time!(13:42:11.000).readable(),
+        &[Token::BorrowedStr("13:42:11")],
     );
 }
 
@@ -241,6 +254,20 @@ fn primitive_date_time() {
         &datetime!(+9999-365 23:58:59.123_456_789).readable(),
         &[Token::BorrowedStr("9999-12-31 23:58:59.123456789")],
     );
+
+    assert_de_tokens(
+        &datetime!(-9999-001 0:00).readable(),
+        &[Token::BorrowedStr("-9999-01-01 00:00:00.0")],
+    );
+    assert_de_tokens(
+        &datetime!(+9999-365 23:58:59.123_456_789).readable(),
+        &[Token::BorrowedStr("9999-12-31 23:58:59.123456789")],
+    );
+
+    assert_de_tokens(
+        &datetime!(-2020-04-19 15:05:17.000).readable(),
+        &[Token::BorrowedStr("-2020-04-19 15:05:17")],
+    );
 }
 
 #[test]
@@ -436,6 +463,28 @@ fn offset_date_time() {
             .readable(),
         &[Token::BorrowedStr(
             "9999-12-31 00:00:00.123456789 -23:58:59",
+        )],
+    );
+    assert_de_tokens(
+        &datetime!(-9999-001 0:00 UTC)
+            .to_offset(offset!(+23:58:59))
+            .readable(),
+        &[Token::BorrowedStr("-9999-01-01 23:58:59.0 +23:58:59")],
+    );
+    assert_de_tokens(
+        &datetime!(+9999-365 23:58:59.123_456_789 UTC)
+            .to_offset(offset!(-23:58:59))
+            .readable(),
+        &[Token::BorrowedStr(
+            "9999-12-31 00:00:00.123456789 -23:58:59",
+        )],
+    );
+    assert_de_tokens(
+        &datetime!(+1234-07-15 19:26:59.000 UTC)
+            .replace_offset(offset!(-23:58:59))
+            .readable(),
+        &[Token::BorrowedStr(
+            "1234-07-15 19:26:59 -23:58:59",
         )],
     );
 }
