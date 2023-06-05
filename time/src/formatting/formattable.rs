@@ -35,10 +35,19 @@ mod sealed {
 
     /// Format the item using a format description, the intended output, and the various components.
     pub trait Sealed {
+        /// Can the item be ignored when formatting and optional value.
+        fn fmt_ignore(
+            &self,
+            date: Option<Date>,
+            time: Option<Time>,
+            offset: Option<UtcOffset>,
+        ) -> bool;
+
         /// Format the item into the provided output, returning the number of bytes written.
         fn format_into(
             &self,
             output: &mut impl io::Write,
+            optional: bool,
             date: Option<Date>,
             time: Option<Time>,
             offset: Option<UtcOffset>,
@@ -52,7 +61,7 @@ mod sealed {
             offset: Option<UtcOffset>,
         ) -> Result<String, error::Format> {
             let mut buf = Vec::new();
-            self.format_into(&mut buf, date, time, offset)?;
+            self.format_into(&mut buf, false, date, time, offset)?;
             Ok(String::from_utf8_lossy(&buf).into_owned())
         }
     }
@@ -60,74 +69,146 @@ mod sealed {
 
 // region: custom formats
 impl<'a> sealed::Sealed for FormatItem<'a> {
+    fn fmt_ignore(
+        &self,
+        date: Option<Date>,
+        time: Option<Time>,
+        offset: Option<UtcOffset>,
+    ) -> bool {
+        match *self {
+            Self::Literal(_literal) => true,
+            Self::Component(component) => component.fmt_ignore(date, time, offset),
+            Self::Compound(items) => items.fmt_ignore(date, time, offset),
+            Self::Optional(item) => item.fmt_ignore(date, time, offset),
+            Self::First(items) => items.fmt_ignore(date, time, offset),
+        }
+    }
+
     fn format_into(
         &self,
         output: &mut impl io::Write,
+        optional: bool,
         date: Option<Date>,
         time: Option<Time>,
         offset: Option<UtcOffset>,
     ) -> Result<usize, error::Format> {
+        if optional && self.fmt_ignore(date, time, offset) {
+            return Ok(0);
+        }
+
         Ok(match *self {
             Self::Literal(literal) => write(output, literal)?,
-            Self::Component(component) => format_component(output, component, date, time, offset)?,
-            Self::Compound(items) => items.format_into(output, date, time, offset)?,
-            Self::Optional(item) => item.format_into(output, date, time, offset)?,
+            Self::Component(component) => {
+                format_component(output, false, component, date, time, offset)?
+            }
+            Self::Compound(items) => items.format_into(output, false, date, time, offset)?,
+            Self::Optional(item) => item.format_into(output, true, date, time, offset)?,
             Self::First(items) => match items {
                 [] => 0,
-                [item, ..] => item.format_into(output, date, time, offset)?,
+                [item, ..] => item.format_into(output, false, date, time, offset)?,
             },
         })
     }
 }
 
 impl<'a> sealed::Sealed for [FormatItem<'a>] {
+    fn fmt_ignore(
+        &self,
+        date: Option<Date>,
+        time: Option<Time>,
+        offset: Option<UtcOffset>,
+    ) -> bool {
+        self.iter().all(|i| i.fmt_ignore(date, time, offset))
+    }
+
     fn format_into(
         &self,
         output: &mut impl io::Write,
+        optional: bool,
         date: Option<Date>,
         time: Option<Time>,
         offset: Option<UtcOffset>,
     ) -> Result<usize, error::Format> {
+        if optional && self.fmt_ignore(date, time, offset) {
+            return Ok(0);
+        }
+
         let mut bytes = 0;
         for item in self.iter() {
-            bytes += item.format_into(output, date, time, offset)?;
+            bytes += item.format_into(output, false, date, time, offset)?;
         }
         Ok(bytes)
     }
 }
 
 impl sealed::Sealed for OwnedFormatItem {
+    fn fmt_ignore(
+        &self,
+        date: Option<Date>,
+        time: Option<Time>,
+        offset: Option<UtcOffset>,
+    ) -> bool {
+        match self {
+            Self::Literal(_literal) => true,
+            Self::Component(component) => component.fmt_ignore(date, time, offset),
+            Self::Compound(items) => items.fmt_ignore(date, time, offset),
+            Self::Optional(item) => item.fmt_ignore(date, time, offset),
+            Self::First(items) => items.fmt_ignore(date, time, offset),
+        }
+    }
+
     fn format_into(
         &self,
         output: &mut impl io::Write,
+        optional: bool,
         date: Option<Date>,
         time: Option<Time>,
         offset: Option<UtcOffset>,
     ) -> Result<usize, error::Format> {
+        if optional && self.fmt_ignore(date, time, offset) {
+            return Ok(0);
+        }
+
         match self {
             Self::Literal(literal) => Ok(write(output, literal)?),
-            Self::Component(component) => format_component(output, *component, date, time, offset),
-            Self::Compound(items) => items.format_into(output, date, time, offset),
-            Self::Optional(item) => item.format_into(output, date, time, offset),
+            Self::Component(component) => {
+                format_component(output, false, *component, date, time, offset)
+            }
+            Self::Compound(items) => items.format_into(output, false, date, time, offset),
+            Self::Optional(item) => item.format_into(output, true, date, time, offset),
             Self::First(items) => match &**items {
                 [] => Ok(0),
-                [item, ..] => item.format_into(output, date, time, offset),
+                [item, ..] => item.format_into(output, false, date, time, offset),
             },
         }
     }
 }
 
 impl sealed::Sealed for [OwnedFormatItem] {
+    fn fmt_ignore(
+        &self,
+        date: Option<Date>,
+        time: Option<Time>,
+        offset: Option<UtcOffset>,
+    ) -> bool {
+        self.iter().all(|i| i.fmt_ignore(date, time, offset))
+    }
+
     fn format_into(
         &self,
         output: &mut impl io::Write,
+        optional: bool,
         date: Option<Date>,
         time: Option<Time>,
         offset: Option<UtcOffset>,
     ) -> Result<usize, error::Format> {
+        if optional && self.fmt_ignore(date, time, offset) {
+            return Ok(0);
+        }
+
         let mut bytes = 0;
         for item in self.iter() {
-            bytes += item.format_into(output, date, time, offset)?;
+            bytes += item.format_into(output, false, date, time, offset)?;
         }
         Ok(bytes)
     }
@@ -137,23 +218,46 @@ impl<T: Deref> sealed::Sealed for T
 where
     T::Target: sealed::Sealed,
 {
+    #[inline(always)]
+    fn fmt_ignore(
+        &self,
+        date: Option<Date>,
+        time: Option<Time>,
+        offset: Option<UtcOffset>,
+    ) -> bool {
+        self.deref().fmt_ignore(date, time, offset)
+    }
+
+    #[inline(always)]
     fn format_into(
         &self,
         output: &mut impl io::Write,
+        optional: bool,
         date: Option<Date>,
         time: Option<Time>,
         offset: Option<UtcOffset>,
     ) -> Result<usize, error::Format> {
-        self.deref().format_into(output, date, time, offset)
+        self.deref()
+            .format_into(output, optional, date, time, offset)
     }
 }
 // endregion custom formats
 
 // region: well-known formats
 impl sealed::Sealed for Rfc2822 {
+    fn fmt_ignore(
+        &self,
+        _date: Option<Date>,
+        _time: Option<Time>,
+        _offset: Option<UtcOffset>,
+    ) -> bool {
+        false
+    }
+
     fn format_into(
         &self,
         output: &mut impl io::Write,
+        _optional: bool,
         date: Option<Date>,
         time: Option<Time>,
         offset: Option<UtcOffset>,
@@ -199,9 +303,19 @@ impl sealed::Sealed for Rfc2822 {
 }
 
 impl sealed::Sealed for Rfc3339 {
+    fn fmt_ignore(
+        &self,
+        _date: Option<Date>,
+        _time: Option<Time>,
+        _offset: Option<UtcOffset>,
+    ) -> bool {
+        false
+    }
+
     fn format_into(
         &self,
         output: &mut impl io::Write,
+        _optional: bool,
         date: Option<Date>,
         time: Option<Time>,
         offset: Option<UtcOffset>,
@@ -236,25 +350,21 @@ impl sealed::Sealed for Rfc3339 {
         #[allow(clippy::if_not_else)]
         if time.nanosecond() != 0 {
             let nanos = time.nanosecond();
+            let (width, val) = crate::format_description::modifier::SubsecondDigits::OneOrMore
+                .as_format_repr(nanos);
             bytes += write(output, b".")?;
-            bytes += if nanos % 10 != 0 {
-                format_number_pad_zero::<9>(output, nanos)
-            } else if (nanos / 10) % 10 != 0 {
-                format_number_pad_zero::<8>(output, nanos / 10)
-            } else if (nanos / 100) % 10 != 0 {
-                format_number_pad_zero::<7>(output, nanos / 100)
-            } else if (nanos / 1_000) % 10 != 0 {
-                format_number_pad_zero::<6>(output, nanos / 1_000)
-            } else if (nanos / 10_000) % 10 != 0 {
-                format_number_pad_zero::<5>(output, nanos / 10_000)
-            } else if (nanos / 100_000) % 10 != 0 {
-                format_number_pad_zero::<4>(output, nanos / 100_000)
-            } else if (nanos / 1_000_000) % 10 != 0 {
-                format_number_pad_zero::<3>(output, nanos / 1_000_000)
-            } else if (nanos / 10_000_000) % 10 != 0 {
-                format_number_pad_zero::<2>(output, nanos / 10_000_000)
-            } else {
-                format_number_pad_zero::<1>(output, nanos / 100_000_000)
+
+            bytes += match width {
+                1 => format_number_pad_zero::<1>(output, val),
+                2 => format_number_pad_zero::<2>(output, val),
+                3 => format_number_pad_zero::<3>(output, val),
+                4 => format_number_pad_zero::<4>(output, val),
+                5 => format_number_pad_zero::<5>(output, val),
+                6 => format_number_pad_zero::<6>(output, val),
+                7 => format_number_pad_zero::<7>(output, val),
+                8 => format_number_pad_zero::<8>(output, val),
+                9 => format_number_pad_zero::<9>(output, val),
+                _ => unreachable!(),
             }?;
         }
 
@@ -273,9 +383,19 @@ impl sealed::Sealed for Rfc3339 {
 }
 
 impl<const CONFIG: EncodedConfig> sealed::Sealed for Iso8601<CONFIG> {
+    fn fmt_ignore(
+        &self,
+        _date: Option<Date>,
+        _time: Option<Time>,
+        _offset: Option<UtcOffset>,
+    ) -> bool {
+        false
+    }
+
     fn format_into(
         &self,
         output: &mut impl io::Write,
+        _optional: bool,
         date: Option<Date>,
         time: Option<Time>,
         offset: Option<UtcOffset>,

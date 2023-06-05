@@ -34,14 +34,14 @@ fn time() {
         &[Token::BorrowedStr("00:00:00.000")],
     );
 
-    assert_de_tokens(
+    assert_tokens(
         &Time::MIDNIGHT.readable(),
         &[Token::BorrowedStr("00:00")],
     );
 
-    assert_tokens(
+    assert_de_tokens(
         &Time::MIDNIGHT.readable(),
-        &[Token::BorrowedStr("00:00:00.0")],
+        &[Token::BorrowedStr("00:00:00.000")],
     );
 
     assert_de_tokens(
@@ -90,7 +90,7 @@ fn time() {
 
     assert_tokens(
         &time!(13:42:11.000).readable(),
-        &[Token::BorrowedStr("13:42:11.0")],
+        &[Token::BorrowedStr("13:42:11")],
     );
 
     assert_de_tokens(
@@ -116,11 +116,6 @@ fn time() {
     );
 
     assert_tokens(
-        &time!(20:00).readable(),
-        &[Token::BorrowedStr("20:00:00.0")],
-    );
-
-    assert_de_tokens(
         &time!(20:00).readable(),
         &[Token::BorrowedStr("20:00")],
     );
@@ -320,6 +315,14 @@ fn primitive_date_time() {
         ],
     );
     assert_tokens(
+        &datetime!(-9999-001 0:00).readable(),
+        &[Token::BorrowedStr("-9999-01-01 00:00")],
+    );
+    assert_de_tokens(
+        &datetime!(-9999-001 0:00).readable(),
+        &[Token::BorrowedStr("-9999-01-01 00:00:00")],
+    );
+    assert_de_tokens(
         &datetime!(-9999-001 0:00).readable(),
         &[Token::BorrowedStr("-9999-01-01 00:00:00.0")],
     );
@@ -540,7 +543,7 @@ fn offset_date_time() {
         &datetime!(-9999-001 0:00 UTC)
             .to_offset(offset!(+23:58:59))
             .readable(),
-        &[Token::BorrowedStr("-9999-01-01 23:58:59.0 +23:58:59")],
+        &[Token::BorrowedStr("-9999-01-01 23:58:59 +23:58:59")],
     );
     assert_de_tokens(
         &datetime!(-9999-001 0:00 UTC)

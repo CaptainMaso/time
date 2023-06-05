@@ -225,12 +225,14 @@ pub(crate) fn format_number_pad_none(
 /// stream.
 pub(crate) fn format_component(
     output: &mut impl io::Write,
+    optional: bool,
     component: Component,
     date: Option<Date>,
     time: Option<Time>,
     offset: Option<UtcOffset>,
 ) -> Result<usize, error::Format> {
     use Component::*;
+
     Ok(match (component, date, time, offset) {
         (Day(modifier), Some(date), ..) => fmt_day(output, date, modifier)?,
         (Month(modifier), Some(date), ..) => fmt_month(output, date, modifier)?,
@@ -241,11 +243,13 @@ pub(crate) fn format_component(
         (Hour(modifier), _, Some(time), _) => fmt_hour(output, time, modifier)?,
         (Minute(modifier), _, Some(time), _) => fmt_minute(output, time, modifier)?,
         (Period(modifier), _, Some(time), _) => fmt_period(output, time, modifier)?,
-        (Second(modifier), _, Some(time), _) => fmt_second(output, time, modifier)?,
-        (Subsecond(modifier), _, Some(time), _) => fmt_subsecond(output, time, modifier)?,
+        (Second(modifier), _, Some(time), _) => fmt_second(output, optional, time, modifier)?,
+        (Subsecond(modifier), _, Some(time), _) => fmt_subsecond(output, optional, time, modifier)?,
         (OffsetHour(modifier), .., Some(offset)) => fmt_offset_hour(output, offset, modifier)?,
         (OffsetMinute(modifier), .., Some(offset)) => fmt_offset_minute(output, offset, modifier)?,
-        (OffsetSecond(modifier), .., Some(offset)) => fmt_offset_second(output, offset, modifier)?,
+        (OffsetSecond(modifier), .., Some(offset)) => {
+            fmt_offset_second(output, optional, offset, modifier)?
+        }
         (Ignore(_), ..) => 0,
         (UnixTimestamp(modifier), Some(date), Some(time), Some(offset)) => {
             fmt_unix_timestamp(output, date, time, offset, modifier)?
@@ -428,15 +432,20 @@ fn fmt_period(
 /// Format the second into the designated output.
 fn fmt_second(
     output: &mut impl io::Write,
+    optional: bool,
     time: Time,
     modifier::Second { padding }: modifier::Second,
 ) -> Result<usize, io::Error> {
+    if optional && time.second() == 0 {
+        return Ok(0);
+    }
     format_number::<2>(output, time.second(), padding)
 }
 
 /// Format the subsecond into the designated output.
 fn fmt_subsecond<W: io::Write>(
     output: &mut W,
+    optional: bool,
     time: Time,
     modifier::Subsecond { digits }: modifier::Subsecond,
 ) -> Result<usize, io::Error> {
@@ -459,8 +468,10 @@ fn fmt_subsecond<W: io::Write>(
         format_number_pad_zero::<3>(output, nanos / 1_000_000)
     } else if digits == Two || (digits == OneOrMore && (nanos / 10_000_000) % 10 != 0) {
         format_number_pad_zero::<2>(output, nanos / 10_000_000)
-    } else {
+    } else if !optional || nanos / 100_000_000 != 0 {
         format_number_pad_zero::<1>(output, nanos / 100_000_000)
+    } else {
+        Ok(0)
     }
 }
 // endregion time formatters
@@ -497,9 +508,13 @@ fn fmt_offset_minute(
 /// Format the offset second into the designated output.
 fn fmt_offset_second(
     output: &mut impl io::Write,
+    optional: bool,
     offset: UtcOffset,
     modifier::OffsetSecond { padding }: modifier::OffsetSecond,
 ) -> Result<usize, io::Error> {
+    if optional && offset.seconds_past_minute().unsigned_abs() == 0 {
+        return Ok(0);
+    }
     format_number::<2>(output, offset.seconds_past_minute().unsigned_abs(), padding)
 }
 // endregion offset formatters

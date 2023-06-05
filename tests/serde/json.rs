@@ -63,7 +63,7 @@ fn time_json() -> Result<(), Box<dyn Error>> {
     assert_eq!(serialize(time.compact())?, "[12,40,20,0]");
     assert_eq!(deserialize::<Time>("[12,40,20,0]", Compact)?, time);
 
-    assert_eq!(serialize(time.readable())?, "\"12:40:20.0\"");
+    assert_eq!(serialize(time.readable())?, "\"12:40:20\"");
     assert_eq!(deserialize::<Time>("\"12:40:20.0\"", Readable)?, time);
     assert_eq!(deserialize::<Time>("[12,40,20,0]", Readable)?, time);
     assert_eq!(deserialize::<Time>("\"12:40:20\"", Readable)?, time);
@@ -82,7 +82,7 @@ fn primitive_datetime_json() -> Result<(), Box<dyn Error>> {
         dt
     );
 
-    assert_eq!(serialize(dt.readable())?, "\"2022-05-20 12:40:20.0\"");
+    assert_eq!(serialize(dt.readable())?, "\"2022-05-20 12:40:20\"");
     assert_eq!(
         deserialize::<PrimitiveDateTime>("\"2022-05-20 12:40:20.0\"", Readable)?,
         dt
@@ -107,10 +107,10 @@ fn offset_datetime_json() -> Result<(), Box<dyn Error>> {
 
     assert_eq!(
         serialize(dt.readable())?,
-        "\"2022-05-20 12:40:20.0 +00:00:00\""
+        "\"2022-05-20 12:40:20 +00:00:00\""
     );
     assert_eq!(
-        deserialize::<OffsetDateTime>("\"2022-05-20 12:40:20.0 +00:00:00\"", Readable)?,
+        deserialize::<OffsetDateTime>("\"2022-05-20 12:40:20 +00:00:00\"", Readable)?,
         dt
     );
     assert_eq!(

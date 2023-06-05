@@ -186,6 +186,114 @@ pub enum SubsecondDigits {
     OneOrMore,
 }
 
+impl SubsecondDigits {
+    /// Rounds the subsecond value to the number of digits present
+    pub(crate) const fn as_format_repr(&self, nanoseconds: u32) -> (u32, u32) {
+        assert!(nanoseconds < 1_000_000_000);
+
+        let dig = match self {
+            Self::One => 1,
+            Self::Two => 2,
+            Self::Three => 3,
+            Self::Four => 4,
+            Self::Five => 5,
+            Self::Six => 6,
+            Self::Seven => 7,
+            Self::Eight => 8,
+            Self::Nine => 9,
+            Self::OneOrMore => {
+                if nanoseconds == 0 {
+                    return (1, 0);
+                }
+
+                let mut zeros = 0;
+                let mut n = nanoseconds;
+
+                if n % 100_000_000 == 0 {
+                    zeros += 8;
+                    n /= 100_000_000;
+                }
+
+                if n % 10000 == 0 {
+                    zeros += 4;
+                    n /= 10000;
+                }
+
+                if n % 100 == 0 {
+                    zeros += 2;
+                    n /= 100;
+                }
+
+                if n % 10 == 0 {
+                    zeros += 1;
+                }
+
+                9 - zeros
+            }
+        };
+
+        let div = 10u32.pow(9 - dig);
+        let val = nanoseconds / div;
+        let rem = nanoseconds % div;
+
+        if rem > div / 2 {
+            (dig, val + 1)
+        } else {
+            (dig, val)
+        }
+    }
+}
+
+#[test]
+fn test_subsecond_rounding() {
+    assert_eq!(SubsecondDigits::Three.as_format_repr(000_000_000), (3, 0));
+    assert_eq!(SubsecondDigits::Six.as_format_repr(000_000_000), (6, 0));
+    assert_eq!(SubsecondDigits::Nine.as_format_repr(000_000_000), (9, 0));
+    assert_eq!(
+        SubsecondDigits::OneOrMore.as_format_repr(000_000_000),
+        (1, 0)
+    );
+
+    assert_eq!(SubsecondDigits::Three.as_format_repr(123_456_789), (3, 123));
+    assert_eq!(
+        SubsecondDigits::Six.as_format_repr(123_456_789),
+        (6, 123_457)
+    );
+    assert_eq!(
+        SubsecondDigits::Nine.as_format_repr(123_456_789),
+        (9, 123_456_789)
+    );
+
+    assert_eq!(
+        SubsecondDigits::OneOrMore.as_format_repr(123_456_789),
+        (9, 123_456_789)
+    );
+    assert_eq!(
+        SubsecondDigits::OneOrMore.as_format_repr(123_456_000),
+        (6, 123_456)
+    );
+    assert_eq!(
+        SubsecondDigits::OneOrMore.as_format_repr(123_000_000),
+        (3, 123)
+    );
+    assert_eq!(SubsecondDigits::OneOrMore.as_format_repr(456_000), (6, 456));
+    assert_eq!(SubsecondDigits::OneOrMore.as_format_repr(789), (9, 789));
+    assert_eq!(
+        SubsecondDigits::OneOrMore.as_format_repr(100_000_000),
+        (1, 1)
+    );
+    assert_eq!(SubsecondDigits::OneOrMore.as_format_repr(1_000_000), (3, 1));
+    assert_eq!(SubsecondDigits::OneOrMore.as_format_repr(1_000), (6, 1));
+    assert_eq!(SubsecondDigits::OneOrMore.as_format_repr(1), (9, 1));
+    assert_eq!(
+        SubsecondDigits::OneOrMore.as_format_repr(100_000_001),
+        (9, 100_000_001)
+    );
+    assert_eq!(SubsecondDigits::OneOrMore.as_format_repr(9), (9, 9));
+    assert_eq!(SubsecondDigits::OneOrMore.as_format_repr(5_000), (6, 5));
+    assert_eq!(SubsecondDigits::OneOrMore.as_format_repr(0), (1, 0));
+}
+
 /// Subsecond within the second.
 #[non_exhaustive]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

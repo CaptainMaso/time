@@ -829,42 +829,42 @@ fn optional_item() -> time::Result<()> {
 
     assert_eq!(
         datetime!(1970-01-01 00:00:00 UTC).format(&fd!("[optional [test [offset_second]]]"))?,
-        "test 00"
+        ""
     );
 
     assert_eq!(
         datetime!(1970-01-01 00:00:00 UTC).format(&OwnedFormatItem::from(&fd!("[optional [test [offset_second]]]")))?,
-        "test 00"
+        ""
     );
 
     assert_eq!(
         datetime!(1970-01-01 00:00:00 UTC).format(&fd!("[optional [test [offset_minute]]]"))?,
-        "test 00"
+        ""
     );
 
     assert_eq!(
         datetime!(1970-01-01 00:00:00 UTC).format(&OwnedFormatItem::from(&fd!("[optional [test [offset_minute]]]")))?,
-        "test 00"
+        ""
     );
 
     assert_eq!(
         datetime!(1970-01-01 00:00:00 UTC).format(&fd!("[optional [test [second]]]"))?,
-        "test 00"
+        ""
     );
 
     assert_eq!(
         datetime!(1970-01-01 00:00:00 UTC).format(&OwnedFormatItem::from(&fd!("[optional [test [second]]]")))?,
-        "test 00"
+        ""
     );
 
     assert_eq!(
         datetime!(1970-01-01 00:00:00 UTC).format(&fd!("[optional [test [subsecond]]]"))?,
-        "test 0"
+        ""
     );
 
     assert_eq!(
         datetime!(1970-01-01 00:00:00 UTC).format(&OwnedFormatItem::from(&fd!("[optional [test [subsecond]]]")))?,
-        "test 0"
+        ""
     );
     
     let owned_fd = 
@@ -882,7 +882,7 @@ fn optional_item() -> time::Result<()> {
 
     assert_eq!(
         datetime!(1970-01-01 00:00:00 UTC).format(&owned_fd)?,
-        "00"
+        ""
     );
 
     let owned_fd = 
@@ -908,7 +908,7 @@ fn optional_item() -> time::Result<()> {
 
     assert_eq!(
         datetime!(1970-01-01 00:00:00 UTC).format(&owned_fd)?,
-        "Test text00"
+        ""
     );
 
     Ok(())

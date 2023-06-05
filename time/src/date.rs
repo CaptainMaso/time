@@ -933,7 +933,7 @@ impl Date {
         output: &mut impl io::Write,
         format: &(impl Formattable + ?Sized),
     ) -> Result<usize, error::Format> {
-        format.format_into(output, Some(self), None, None)
+        format.format_into(output, false, Some(self), None, None)
     }
 
     /// Format the `Date` using the provided [format description](crate::format_description).

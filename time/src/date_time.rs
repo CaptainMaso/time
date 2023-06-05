@@ -770,6 +770,7 @@ impl<O: MaybeOffset> DateTime<O> {
     ) -> Result<usize, error::Format> {
         format.format_into(
             output,
+            false,
             Some(self.date),
             Some(self.time),
             maybe_offset_as_offset_opt::<O>(self.offset),

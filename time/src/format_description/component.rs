@@ -39,3 +39,34 @@ pub enum Component {
     /// A Unix timestamp.
     UnixTimestamp(modifier::UnixTimestamp),
 }
+
+impl Component {
+    /// Determines whether this component can be ignored when formatting
+    pub(crate) fn fmt_ignore(
+        &self,
+        _date: Option<crate::Date>,
+        time: Option<crate::Time>,
+        offset: Option<crate::UtcOffset>,
+    ) -> bool {
+        match self {
+            Self::Day(_)
+            | Self::Month(_)
+            | Self::Ordinal(_)
+            | Self::Weekday(_)
+            | Self::WeekNumber(_)
+            | Self::Year(_)
+            | Self::Hour(_)
+            | Self::Minute(_)
+            | Self::Period(_)
+            | Self::Ignore(_)
+            | Self::UnixTimestamp(_) => false,
+            Self::Second(_) => time.map(|t| t.second() == 0).unwrap_or(true),
+            Self::Subsecond(s) => time
+                .map(|t| s.digits.as_format_repr(t.nanosecond()).1 == 0)
+                .unwrap_or(true),
+            Self::OffsetHour(_) => offset.map(|t| t.is_utc()).unwrap_or(true),
+            Self::OffsetMinute(_) => offset.map(|t| t.minutes_past_hour() == 0).unwrap_or(true),
+            Self::OffsetSecond(_) => offset.map(|t| t.seconds_past_minute() == 0).unwrap_or(true),
+        }
+    }
+}
